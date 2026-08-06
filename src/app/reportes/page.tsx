@@ -2,6 +2,9 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { FileText, FileSpreadsheet, Printer, ChevronRight, ChevronLeft } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 import { useViajes } from "@/hooks/use-viajes";
 import { useDespachos } from "@/hooks/use-despachos";
 import { useVehiculos } from "@/hooks/use-vehiculos";
@@ -241,13 +244,90 @@ export default function ReportesPage() {
     return true;
   }, [step, reportType, selectedVehiculo, selectedConductor, selectedCliente, selectedCiudad]);
 
-  const handleExportPDF = () => {
-    console.log("Exportar PDF - Reporte:", reportLabel, "Datos:", filteredData.rows, "Resumen:", summary);
-  };
+  const handleExportPDF = useCallback(() => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
 
-  const handleExportExcel = () => {
-    console.log("Exportar Excel - Reporte:", reportLabel, "Datos:", filteredData.rows, "Resumen:", summary);
-  };
+    doc.setFontSize(18);
+    doc.text("ETALUM S.A.S.", pageWidth / 2, 15, { align: "center" });
+    doc.setFontSize(12);
+    doc.text(`Reporte: ${reportLabel}`, pageWidth / 2, 23, { align: "center" });
+    doc.setFontSize(10);
+    doc.text(`Fecha: ${new Date().toLocaleDateString("es-CO")}`, pageWidth / 2, 29, { align: "center" });
+
+    let y = 38;
+    doc.setFontSize(10);
+    doc.text("Resumen:", 14, y);
+    y += 7;
+    doc.text(`Total registros: ${summary.totalRegistros}`, 14, y);
+    if (filteredData.type === "viajes") {
+      y += 7;
+      doc.text(`KM Totales: ${summary.totalKm.toLocaleString("es-CO")}`, 14, y);
+      y += 7;
+      doc.text(`Costo Total: $${summary.totalCosto.toLocaleString("es-CO")}`, 14, y);
+      y += 7;
+      doc.text(`Galones: ${summary.totalGalones.toLocaleString("es-CO")}`, 14, y);
+    }
+    y += 12;
+
+    const isViajes = filteredData.type === "viajes";
+    const head = isViajes
+      ? [["ID", "Fecha", "Descripción", "Conductor", "KM", "Costo"]]
+      : [["ID", "Fecha", "Obra", "Descripción", "Estado"]];
+
+    const body = filteredData.rows.map((row) =>
+      isViajes
+        ? [row.id, row.fecha, (row.descripcion as string).slice(0, 30), row.referencia, String(row.kmRecorridos), `$${(row.costoTotal as number).toLocaleString("es-CO")}`]
+        : [row.id, row.fecha, row.referencia, (row.descripcion as string).slice(0, 40), row.estado as string]
+    );
+
+    autoTable(doc, {
+      startY: y,
+      head,
+      body,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [51, 51, 51] },
+      margin: { left: 14, right: 14 },
+    });
+
+    doc.save(`reporte-${reportLabel.toLowerCase().replace(/\s+/g, "-")}-${new Date().toISOString().split("T")[0]}.pdf`);
+  }, [reportLabel, filteredData, summary]);
+
+  const handleExportExcel = useCallback(() => {
+    const isViajes = filteredData.type === "viajes";
+
+    const resumenData = [
+      ["Reporte:", reportLabel],
+      ["Fecha:", new Date().toLocaleDateString("es-CO")],
+      ["Total registros:", summary.totalRegistros],
+    ];
+    if (isViajes) {
+      resumenData.push(
+        ["KM Totales:", summary.totalKm],
+        ["Costo Total:", summary.totalCosto],
+        ["Galones:", summary.totalGalones]
+      );
+    }
+
+    const headerRow = isViajes
+      ? ["ID", "Fecha", "Descripción", "Referencia", "KM", "Costo Total"]
+      : ["ID", "Fecha", "Obra", "Descripción", "Estado"];
+
+    const dataRows = filteredData.rows.map((row) =>
+      isViajes
+        ? [row.id, row.fecha, row.descripcion, row.referencia, row.kmRecorridos, row.costoTotal]
+        : [row.id, row.fecha, row.referencia, row.descripcion, row.estado]
+    );
+
+    const wsResumen = XLSX.utils.aoa_to_sheet(resumenData);
+    const wsDatos = XLSX.utils.aoa_to_sheet([headerRow, ...dataRows]);
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, wsResumen, "Resumen");
+    XLSX.utils.book_append_sheet(wb, wsDatos, "Datos");
+
+    XLSX.writeFile(wb, `reporte-${reportLabel.toLowerCase().replace(/\s+/g, "-")}-${new Date().toISOString().split("T")[0]}.xlsx`);
+  }, [reportLabel, filteredData, summary]);
 
   const handlePrint = () => {
     window.print();

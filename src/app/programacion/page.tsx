@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { format, parseISO, isWithinInterval } from "date-fns";
 import { es } from "date-fns/locale";
 import {
@@ -9,7 +9,11 @@ import {
   Trash2,
   Upload,
   Search,
+  FileSpreadsheet,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
+import * as XLSX from "xlsx";
 import { useDespachos } from "@/hooks/use-despachos";
 import { useObras } from "@/hooks/use-obras";
 import {
@@ -104,6 +108,8 @@ export default function ProgramacionPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const [importOpen, setImportOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ success: number; errors: string[] } | null>(null);
 
   const getDia = (fecha: string): string => {
     try {
@@ -223,6 +229,116 @@ export default function ProgramacionPage() {
         clienteId: "",
       }));
     }
+  };
+
+  const handleExcelImport = useCallback(
+    async (file: File) => {
+      setImporting(true);
+      setImportResult(null);
+
+      try {
+        const data = await file.arrayBuffer();
+        const workbook = XLSX.read(data);
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet);
+
+        if (rows.length === 0) {
+          setImportResult({ success: 0, errors: ["El archivo está vacío"] });
+          return;
+        }
+
+        const requiredColumns = ["fecha", "obra", "cliente", "area", "descripcion"];
+        const firstRowKeys = Object.keys(rows[0]).map((k) => k.toLowerCase().trim());
+        const missingColumns = requiredColumns.filter(
+          (col) => !firstRowKeys.some((k) => k.includes(col))
+        );
+
+        if (missingColumns.length > 0) {
+          setImportResult({
+            success: 0,
+            errors: [`Faltan columnas requeridas: ${missingColumns.join(", ")}`],
+          });
+          return;
+        }
+
+        const findColumn = (row: Record<string, unknown>, search: string): string => {
+          const key = Object.keys(row).find((k) => k.toLowerCase().includes(search));
+          if (!key) return "";
+          const val = row[key];
+          return typeof val === "string" ? val : String(val ?? "");
+        };
+
+        const errors: string[] = [];
+        let successCount = 0;
+
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          try {
+            const fechaRaw = findColumn(row, "fecha");
+            let fecha = fechaRaw;
+            if (fechaRaw.includes("/")) {
+              const parts = fechaRaw.split("/");
+              if (parts.length === 3) {
+                fecha = `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+              }
+            }
+
+            const nombreObra = findColumn(row, "obra");
+            const obra = obras.find(
+              (o) => o.nombre.toLowerCase() === nombreObra.toLowerCase()
+            );
+
+            const descripcion = findColumn(row, "descripcion") || findColumn(row, "carga");
+            const area = findColumn(row, "area");
+            const memo = findColumn(row, "memo");
+            const cot = findColumn(row, "cot");
+            const responsable = findColumn(row, "responsable") || findColumn(row, "autoriza");
+
+            const validAreas: Despacho["areaResponsable"][] = [
+              "Ensamble", "Vidrio", "Almacén", "Aluminio", "Acero",
+            ];
+            const areaFinal = validAreas.find(
+              (a) => a.toLowerCase() === area.toLowerCase()
+            ) || "Ensamble";
+
+            await create({
+              fecha,
+              dia: getDia(fecha),
+              obraId: obra?.id || "",
+              nombreObra: obra?.nombre || nombreObra,
+              ciudad: obra?.ciudad || "",
+              clienteId: obra?.clienteId || "",
+              descripcionCarga: descripcion,
+              areaResponsable: areaFinal,
+              memo,
+              cot,
+              responsableAutoriza: responsable,
+              estado: "Programado",
+              viajeAsignadoId: null,
+              observaciones: "",
+              registradoPor: "importación",
+              fechaRegistro: new Date().toISOString(),
+            });
+            successCount++;
+          } catch {
+            errors.push(`Fila ${i + 2}: Error al procesar`);
+          }
+        }
+
+        setImportResult({ success: successCount, errors });
+      } catch {
+        setImportResult({ success: 0, errors: ["Error al leer el archivo Excel"] });
+      } finally {
+        setImporting(false);
+      }
+    },
+    [create, obras]
+  );
+
+  const closeImport = () => {
+    setImportOpen(false);
+    setImportResult(null);
   };
 
   if (loading) {
@@ -494,17 +610,57 @@ export default function ProgramacionPage() {
         </div>
       </FormModal>
 
-      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+      <Dialog open={importOpen} onOpenChange={closeImport}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Importar desde Excel</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <FileSpreadsheet className="h-5 w-5" />
+              Importar desde Excel
+            </DialogTitle>
           </DialogHeader>
-          <div className="py-4">
-            <FileUpload accept=".xlsx,.xls" />
+          <div className="py-4 space-y-4">
+            {!importResult ? (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  El archivo debe contener las columnas: <strong>fecha, obra, cliente, area, descripcion</strong> (y opcionales: memo, cot, responsable).
+                </p>
+                <FileUpload accept=".xlsx,.xls" onFileSelect={handleExcelImport} />
+                {importing && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    Procesando archivo...
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-emerald-600">
+                  <CheckCircle2 className="h-5 w-5" />
+                  <span className="text-sm font-medium">
+                    {importResult.success} despacho{importResult.success !== 1 ? "s" : ""} importado{importResult.success !== 1 ? "s" : ""}
+                  </span>
+                </div>
+                {importResult.errors.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-destructive">
+                      <AlertCircle className="h-5 w-5" />
+                      <span className="text-sm font-medium">
+                        {importResult.errors.length} error{importResult.errors.length !== 1 ? "es" : ""}
+                      </span>
+                    </div>
+                    <div className="max-h-32 overflow-y-auto rounded-md bg-destructive/5 p-2">
+                      {importResult.errors.map((err, i) => (
+                        <p key={i} className="text-xs text-destructive">{err}</p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <div className="flex justify-end">
-            <Button variant="outline" onClick={() => setImportOpen(false)}>
-              Cerrar
+            <Button variant="outline" onClick={closeImport}>
+              {importResult ? "Cerrar" : "Cancelar"}
             </Button>
           </div>
         </DialogContent>

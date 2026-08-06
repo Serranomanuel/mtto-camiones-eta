@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "sonner";
 import { AppLayout } from "@/components/shared/AppLayout";
@@ -17,8 +17,14 @@ const jetbrainsMono = JetBrains_Mono({
   weight: ["400", "500"],
 });
 
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-brand",
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+});
+
 export const metadata: Metadata = {
-  title: "ETALUM - Sistema de Logística y Control de Despachos",
+  title: "ETALUM ZFS - Sistema de Logística y Control de Despachos",
   description: "Sistema integral de logística, flota y control de despachos",
 };
 
@@ -30,7 +36,7 @@ export default function RootLayout({
   return (
     <html
       lang="es"
-      className={`${inter.variable} ${jetbrainsMono.variable} h-full`}
+      className={`${inter.variable} ${jetbrainsMono.variable} ${spaceGrotesk.variable} h-full`}
       suppressHydrationWarning
     >
       <body className="min-h-full antialiased">

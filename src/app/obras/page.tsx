@@ -2,9 +2,12 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { useForm, type Resolver } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Pencil, Trash2, Eye, Search } from "lucide-react";
 import { useObras } from "@/hooks/use-obras";
 import { useClientes } from "@/hooks/use-clientes";
+import { obraSchema, type ObraFormData } from "@/lib/validations";
 import {
   Table,
   TableBody,
@@ -32,32 +35,36 @@ import type { Obra } from "@/types/etalum";
 
 const CIUDADES = ["Bogotá", "Barranquilla", "Cartagena", "Santa Marta", "Bucaramanga"];
 
-const initialForm: Omit<Obra, "id"> = {
-  nombre: "",
-  torre: "",
-  clienteId: "",
-  ciudad: "Bogotá",
-  direccion: "",
-  estadoDireccion: "Falta dirección",
-  estadoObra: "Activa",
-  fuente: "",
-  alias: "",
-  observaciones: "",
-};
-
 export default function ObrasPage() {
   const { data, loading, create, update, delete: remove } = useObras();
   const { data: clientes } = useClientes();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<Omit<Obra, "id">>(initialForm);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
   const [filterCiudad, setFilterCiudad] = useState<string>("all");
   const [filterEstadoObra, setFilterEstadoObra] = useState<string>("all");
+
+  const form = useForm<ObraFormData>({
+    resolver: zodResolver(obraSchema) as Resolver<ObraFormData>,
+    defaultValues: {
+      nombre: "",
+      torre: "",
+      clienteId: "",
+      ciudad: "Bogotá",
+      direccion: "",
+      estadoDireccion: "Falta dirección",
+      estadoObra: "Activa",
+      fuente: "",
+      alias: "",
+      observaciones: "",
+    },
+  });
+
+  const { register, handleSubmit, setValue, watch, reset, formState: { errors, isValid } } = form;
 
   const clienteMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -83,13 +90,24 @@ export default function ObrasPage() {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm(initialForm);
+    reset({
+      nombre: "",
+      torre: "",
+      clienteId: "",
+      ciudad: "Bogotá",
+      direccion: "",
+      estadoDireccion: "Falta dirección",
+      estadoObra: "Activa",
+      fuente: "",
+      alias: "",
+      observaciones: "",
+    });
     setModalOpen(true);
   };
 
   const openEdit = (o: Obra) => {
     setEditingId(o.id);
-    setForm({
+    reset({
       nombre: o.nombre,
       torre: o.torre,
       clienteId: o.clienteId,
@@ -104,11 +122,11 @@ export default function ObrasPage() {
     setModalOpen(true);
   };
 
-  const handleSave = async () => {
+  const onValid = async (data: ObraFormData) => {
     if (editingId) {
-      await update(editingId, form);
+      await update(editingId, data as Partial<Obra>);
     } else {
-      await create(form);
+      await create(data as Omit<Obra, "id">);
     }
     setModalOpen(false);
   };
@@ -270,21 +288,25 @@ export default function ObrasPage() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         title={editingId ? "Editar obra" : "Nueva obra"}
-        onSubmit={handleSave}
+        onSubmit={handleSubmit(onValid)}
+        disabled={!isValid}
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <Label>Nombre</Label>
-            <Input value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
+            <Input {...register("nombre")} className={errors.nombre ? "border-destructive" : ""} />
+            {errors.nombre && (
+              <p className="text-sm text-destructive">{errors.nombre.message}</p>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label>Torre</Label>
-            <Input value={form.torre} onChange={(e) => setForm({ ...form, torre: e.target.value })} />
+            <Input {...register("torre")} />
           </div>
           <div className="space-y-1.5">
             <Label>Cliente</Label>
-            <Select value={form.clienteId} onValueChange={(val) => val && setForm({ ...form, clienteId: val })}>
-              <SelectTrigger className="w-full">
+            <Select value={watch("clienteId")} onValueChange={(val) => val && setValue("clienteId", val, { shouldValidate: true })}>
+              <SelectTrigger className={`w-full ${errors.clienteId ? "border-destructive" : ""}`}>
                 <SelectValue placeholder="Seleccionar cliente" />
               </SelectTrigger>
               <SelectContent>
@@ -293,11 +315,14 @@ export default function ObrasPage() {
                 ))}
               </SelectContent>
             </Select>
+            {errors.clienteId && (
+              <p className="text-sm text-destructive">{errors.clienteId.message}</p>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label>Ciudad</Label>
-            <Select value={form.ciudad} onValueChange={(val) => setForm({ ...form, ciudad: val as Obra["ciudad"] })}>
-              <SelectTrigger className="w-full">
+            <Select value={watch("ciudad")} onValueChange={(val) => val && setValue("ciudad", val as Obra["ciudad"], { shouldValidate: true })}>
+              <SelectTrigger className={`w-full ${errors.ciudad ? "border-destructive" : ""}`}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -306,10 +331,16 @@ export default function ObrasPage() {
                 ))}
               </SelectContent>
             </Select>
+            {errors.ciudad && (
+              <p className="text-sm text-destructive">{errors.ciudad.message}</p>
+            )}
           </div>
           <div className="space-y-1.5 sm:col-span-2">
             <Label>Dirección</Label>
-            <Input value={form.direccion} onChange={(e) => setForm({ ...form, direccion: e.target.value })} />
+            <Input {...register("direccion")} className={errors.direccion ? "border-destructive" : ""} />
+            {errors.direccion && (
+              <p className="text-sm text-destructive">{errors.direccion.message}</p>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label>Estado dirección</Label>
@@ -318,8 +349,8 @@ export default function ObrasPage() {
                 <input
                   type="radio"
                   name="estadoDireccion"
-                  checked={form.estadoDireccion === "Completo"}
-                  onChange={() => setForm({ ...form, estadoDireccion: "Completo" })}
+                  checked={watch("estadoDireccion") === "Completo"}
+                  onChange={() => setValue("estadoDireccion", "Completo", { shouldValidate: true })}
                   className="accent-emerald-500"
                 />
                 Completo
@@ -328,8 +359,8 @@ export default function ObrasPage() {
                 <input
                   type="radio"
                   name="estadoDireccion"
-                  checked={form.estadoDireccion === "Falta dirección"}
-                  onChange={() => setForm({ ...form, estadoDireccion: "Falta dirección" })}
+                  checked={watch("estadoDireccion") === "Falta dirección"}
+                  onChange={() => setValue("estadoDireccion", "Falta dirección", { shouldValidate: true })}
                   className="accent-orange-500"
                 />
                 Falta dirección
@@ -338,8 +369,8 @@ export default function ObrasPage() {
           </div>
           <div className="space-y-1.5">
             <Label>Estado obra</Label>
-            <Select value={form.estadoObra} onValueChange={(val) => setForm({ ...form, estadoObra: val as Obra["estadoObra"] })}>
-              <SelectTrigger className="w-full">
+            <Select value={watch("estadoObra")} onValueChange={(val) => val && setValue("estadoObra", val as Obra["estadoObra"], { shouldValidate: true })}>
+              <SelectTrigger className={`w-full ${errors.estadoObra ? "border-destructive" : ""}`}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -348,18 +379,21 @@ export default function ObrasPage() {
                 <SelectItem value="Suspendida">Suspendida</SelectItem>
               </SelectContent>
             </Select>
+            {errors.estadoObra && (
+              <p className="text-sm text-destructive">{errors.estadoObra.message}</p>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label>Fuente</Label>
-            <Input value={form.fuente} onChange={(e) => setForm({ ...form, fuente: e.target.value })} />
+            <Input {...register("fuente")} />
           </div>
           <div className="space-y-1.5">
             <Label>Alias</Label>
-            <Input value={form.alias} onChange={(e) => setForm({ ...form, alias: e.target.value })} />
+            <Input {...register("alias")} />
           </div>
           <div className="space-y-1.5 sm:col-span-2">
             <Label>Observaciones</Label>
-            <Input value={form.observaciones} onChange={(e) => setForm({ ...form, observaciones: e.target.value })} />
+            <Input {...register("observaciones")} />
           </div>
         </div>
       </FormModal>

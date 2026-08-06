@@ -185,6 +185,16 @@ export interface Parametro {
   descripcion: string;
 }
 
+export interface Usuario {
+  id: string;
+  nombre: string;
+  email: string;
+  rol: "Admin" | "Editor" | "Visual";
+  estado: "Activo" | "Inactivo";
+  fechaCreacion: string;
+  ultimoAcceso: string;
+}
+
 // Tipos auxiliares
 export type Ciudad =
   | "Bogotá"

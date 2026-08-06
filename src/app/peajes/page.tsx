@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useForm, type Resolver } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { peajeSchema, type PeajeFormData } from "@/lib/validations";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { Plus, Pencil, Trash2, Search, Landmark } from "lucide-react";
@@ -44,22 +47,26 @@ const categorias = [
 
 const departamentos = ["Santander", "Cundinamarca", "Atlántico"];
 
-const initialForm: Omit<Peaje, "id"> = {
+const initialForm: PeajeFormData = {
   nombre: "",
   via: "",
   departamento: "",
   categoriaVehiculo: "Categoría I",
   tarifa: 0,
-  fechaActualizacion: new Date().toISOString().split("T")[0],
   fuente: "",
   observaciones: "",
 };
 
 export default function PeajesPage() {
   const { data, loading, create, update, delete: remove } = usePeajes();
+
+  const form = useForm<PeajeFormData>({
+    resolver: zodResolver(peajeSchema) as Resolver<PeajeFormData>,
+    defaultValues: initialForm,
+  });
+
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<Omit<Peaje, "id">>(initialForm);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -104,30 +111,29 @@ export default function PeajesPage() {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm(initialForm);
+    form.reset(initialForm);
     setModalOpen(true);
   };
 
   const openEdit = (p: Peaje) => {
     setEditingId(p.id);
-    setForm({
+    form.reset({
       nombre: p.nombre,
       via: p.via,
       departamento: p.departamento,
       categoriaVehiculo: p.categoriaVehiculo,
       tarifa: p.tarifa,
-      fechaActualizacion: p.fechaActualizacion,
       fuente: p.fuente,
       observaciones: p.observaciones,
     });
     setModalOpen(true);
   };
 
-  const handleSave = async () => {
+  const onValid = async (data: PeajeFormData) => {
     if (editingId) {
-      await update(editingId, form);
+      await update(editingId, { ...data, fechaActualizacion: new Date().toISOString().split("T")[0] } as Partial<Peaje>);
     } else {
-      await create(form);
+      await create({ ...data, fechaActualizacion: new Date().toISOString().split("T")[0] } as Omit<Peaje, "id">);
     }
     setModalOpen(false);
   };
@@ -304,50 +310,52 @@ export default function PeajesPage() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         title={editingId ? "Editar peaje" : "Nuevo peaje"}
-        onSubmit={handleSave}
+        onSubmit={form.handleSubmit(onValid)}
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <Label>Nombre</Label>
             <Input
-              value={form.nombre}
-              onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+              {...form.register("nombre")}
+              className={form.formState.errors.nombre ? "border-destructive" : ""}
               placeholder="Ej: Peaje Piedecuestas"
             />
+            {form.formState.errors.nombre?.message && (
+              <p className="text-sm text-destructive">{form.formState.errors.nombre.message}</p>
+            )}
           </div>
 
           <div className="space-y-1.5">
             <Label>Vía</Label>
             <Input
-              value={form.via}
-              onChange={(e) => setForm({ ...form, via: e.target.value })}
+              {...form.register("via")}
+              className={form.formState.errors.via ? "border-destructive" : ""}
               placeholder="Ej: Vía Bucaramanga-Piedecuesta"
             />
+            {form.formState.errors.via?.message && (
+              <p className="text-sm text-destructive">{form.formState.errors.via.message}</p>
+            )}
           </div>
 
           <div className="space-y-1.5">
             <Label>Departamento</Label>
             <Input
-              value={form.departamento}
-              onChange={(e) =>
-                setForm({ ...form, departamento: e.target.value })
-              }
+              {...form.register("departamento")}
+              className={form.formState.errors.departamento ? "border-destructive" : ""}
               placeholder="Ej: Santander"
             />
+            {form.formState.errors.departamento?.message && (
+              <p className="text-sm text-destructive">{form.formState.errors.departamento.message}</p>
+            )}
           </div>
 
           <div className="space-y-1.5">
             <Label>Categoría vehículo</Label>
             <Select
-              value={form.categoriaVehiculo}
-              onValueChange={(val) =>
-                setForm({
-                  ...form,
-                  categoriaVehiculo: (val ?? "Categoría I") as Peaje["categoriaVehiculo"],
-                })
-              }
+              value={form.watch("categoriaVehiculo")}
+              onValueChange={(val) => form.setValue("categoriaVehiculo", (val ?? "Categoría I") as PeajeFormData["categoriaVehiculo"])}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger className={form.formState.errors.categoriaVehiculo ? "border-destructive" : ""}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -358,35 +366,27 @@ export default function PeajesPage() {
                 ))}
               </SelectContent>
             </Select>
+            {form.formState.errors.categoriaVehiculo?.message && (
+              <p className="text-sm text-destructive">{form.formState.errors.categoriaVehiculo.message}</p>
+            )}
           </div>
 
           <div className="space-y-1.5">
             <Label>Tarifa (COP)</Label>
             <Input
               type="number"
-              value={form.tarifa}
-              onChange={(e) =>
-                setForm({ ...form, tarifa: Number(e.target.value) })
-              }
+              {...form.register("tarifa", { valueAsNumber: true })}
+              className={form.formState.errors.tarifa ? "border-destructive" : ""}
             />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Fecha actualización</Label>
-            <Input
-              type="date"
-              value={form.fechaActualizacion}
-              onChange={(e) =>
-                setForm({ ...form, fechaActualizacion: e.target.value })
-              }
-            />
+            {form.formState.errors.tarifa?.message && (
+              <p className="text-sm text-destructive">{form.formState.errors.tarifa.message}</p>
+            )}
           </div>
 
           <div className="space-y-1.5">
             <Label>Fuente</Label>
             <Input
-              value={form.fuente}
-              onChange={(e) => setForm({ ...form, fuente: e.target.value })}
+              {...form.register("fuente")}
               placeholder="Ej: ANI"
             />
           </div>
@@ -394,10 +394,7 @@ export default function PeajesPage() {
           <div className="space-y-1.5 sm:col-span-2">
             <Label>Observaciones</Label>
             <Input
-              value={form.observaciones}
-              onChange={(e) =>
-                setForm({ ...form, observaciones: e.target.value })
-              }
+              {...form.register("observaciones")}
             />
           </div>
         </div>

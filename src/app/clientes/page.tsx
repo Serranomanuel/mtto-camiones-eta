@@ -2,9 +2,12 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { useForm, type Resolver } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useClientes } from "@/hooks/use-clientes";
 import { useObras } from "@/hooks/use-obras";
 import type { Cliente } from "@/types/etalum";
+import { clienteSchema, type ClienteFormData } from "@/lib/validations";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,17 +41,6 @@ import {
   Building2,
 } from "lucide-react";
 
-const emptyForm: Omit<Cliente, "id" | "obrasActivas"> = {
-  nombre: "",
-  nit: "",
-  contacto: "",
-  telefono: "",
-  email: "",
-  ciudad: "",
-  estado: "Activa",
-  observaciones: "",
-};
-
 export default function ClientesPage() {
   const { data: clientes, loading, create, update, delete: deleteCliente } = useClientes();
   const { data: obras } = useObras();
@@ -59,8 +51,23 @@ export default function ClientesPage() {
   const [filterEstado, setFilterEstado] = useState<string>("Todos");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<Omit<Cliente, "id" | "obrasActivas">>(emptyForm);
   const [deleteTarget, setDeleteTarget] = useState<Cliente | null>(null);
+
+  const form = useForm<ClienteFormData>({
+    resolver: zodResolver(clienteSchema) as Resolver<ClienteFormData>,
+    defaultValues: {
+      nombre: "",
+      nit: "",
+      contacto: "",
+      telefono: "",
+      email: "",
+      ciudad: "",
+      estado: "Activa",
+      observaciones: "",
+    },
+  });
+
+  const { register, handleSubmit, setValue, watch, reset, formState: { errors, isValid } } = form;
 
   const ciudades = useMemo(() => {
     const unique = [...new Set(clientes.map((c) => c.ciudad).filter(Boolean))];
@@ -85,13 +92,22 @@ export default function ClientesPage() {
 
   function openCreate() {
     setEditingId(null);
-    setForm(emptyForm);
+    reset({
+      nombre: "",
+      nit: "",
+      contacto: "",
+      telefono: "",
+      email: "",
+      ciudad: "",
+      estado: "Activa",
+      observaciones: "",
+    });
     setModalOpen(true);
   }
 
   function openEdit(c: Cliente) {
     setEditingId(c.id);
-    setForm({
+    reset({
       nombre: c.nombre,
       nit: c.nit,
       contacto: c.contacto,
@@ -104,11 +120,11 @@ export default function ClientesPage() {
     setModalOpen(true);
   }
 
-  async function handleSave() {
+  async function onValid(data: ClienteFormData) {
     if (editingId) {
-      await update(editingId, form);
+      await update(editingId, data as Partial<Cliente>);
     } else {
-      await create({ ...form, obrasActivas: 0 });
+      await create({ ...data, obrasActivas: 0 } as Omit<Cliente, "id">);
     }
     setModalOpen(false);
   }
@@ -118,13 +134,6 @@ export default function ClientesPage() {
       await deleteCliente(deleteTarget.id);
       setDeleteTarget(null);
     }
-  }
-
-  function setField<K extends keyof Omit<Cliente, "id" | "obrasActivas">>(
-    key: K,
-    value: Omit<Cliente, "id" | "obrasActivas">[K]
-  ) {
-    setForm((prev) => ({ ...prev, [key]: value }));
   }
 
   if (loading) {
@@ -336,37 +345,47 @@ export default function ClientesPage() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         title={editingId ? "Editar Cliente" : "Nuevo Cliente"}
-        onSubmit={handleSave}
+        onSubmit={handleSubmit(onValid)}
         submitLabel={editingId ? "Actualizar" : "Crear"}
+        disabled={!isValid}
       >
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="nombre">Nombre</Label>
             <Input
               id="nombre"
-              value={form.nombre}
-              onChange={(e) => setField("nombre", e.target.value)}
+              {...register("nombre")}
               placeholder="Nombre del cliente"
+              className={errors.nombre ? "border-destructive" : ""}
             />
+            {errors.nombre && (
+              <p className="text-sm text-destructive">{errors.nombre.message}</p>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="nit">NIT</Label>
               <Input
                 id="nit"
-                value={form.nit}
-                onChange={(e) => setField("nit", e.target.value)}
+                {...register("nit")}
                 placeholder="Ej: 900123456-7"
+                className={errors.nit ? "border-destructive" : ""}
               />
+              {errors.nit && (
+                <p className="text-sm text-destructive">{errors.nit.message}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="ciudad">Ciudad</Label>
               <Input
                 id="ciudad"
-                value={form.ciudad}
-                onChange={(e) => setField("ciudad", e.target.value)}
+                {...register("ciudad")}
                 placeholder="Ej: Bucaramanga"
+                className={errors.ciudad ? "border-destructive" : ""}
               />
+              {errors.ciudad && (
+                <p className="text-sm text-destructive">{errors.ciudad.message}</p>
+              )}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -374,8 +393,7 @@ export default function ClientesPage() {
               <Label htmlFor="contacto">Contacto</Label>
               <Input
                 id="contacto"
-                value={form.contacto}
-                onChange={(e) => setField("contacto", e.target.value)}
+                {...register("contacto")}
                 placeholder="Nombre del contacto"
               />
             </div>
@@ -383,8 +401,7 @@ export default function ClientesPage() {
               <Label htmlFor="telefono">Teléfono</Label>
               <Input
                 id="telefono"
-                value={form.telefono}
-                onChange={(e) => setField("telefono", e.target.value)}
+                {...register("telefono")}
                 placeholder="Ej: 3001234567"
               />
             </div>
@@ -394,18 +411,21 @@ export default function ClientesPage() {
             <Input
               id="email"
               type="email"
-              value={form.email}
-              onChange={(e) => setField("email", e.target.value)}
+              {...register("email")}
               placeholder="correo@ejemplo.com"
+              className={errors.email ? "border-destructive" : ""}
             />
+            {errors.email && (
+              <p className="text-sm text-destructive">{errors.email.message}</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label>Estado</Label>
             <Select
-              value={form.estado}
-              onValueChange={(v) => setField("estado", v as Cliente["estado"])}
+              value={watch("estado")}
+              onValueChange={(v) => v && setValue("estado", v as Cliente["estado"], { shouldValidate: true })}
             >
-              <SelectTrigger>
+              <SelectTrigger className={errors.estado ? "border-destructive" : ""}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -413,12 +433,14 @@ export default function ClientesPage() {
                 <SelectItem value="Inactiva">Inactiva</SelectItem>
               </SelectContent>
             </Select>
+            {errors.estado && (
+              <p className="text-sm text-destructive">{errors.estado.message}</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label>Observaciones</Label>
             <Input
-              value={form.observaciones}
-              onChange={(e) => setField("observaciones", e.target.value)}
+              {...register("observaciones")}
               placeholder="Notas adicionales..."
             />
           </div>

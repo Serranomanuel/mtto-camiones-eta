@@ -63,8 +63,11 @@ export function Sidebar({ className }: SidebarProps) {
     >
       <div className="flex items-center justify-between px-4 py-3 border-b">
         {!sidebarCollapsed && (
-          <span className="text-lg font-bold text-sidebar-primary tracking-tight">
-            ETALUM
+          <span
+            className="text-lg font-bold text-sidebar-primary tracking-tight"
+            style={{ fontFamily: "var(--font-brand)" }}
+          >
+            ETALUM <span className="text-sidebar-primary/60 font-medium">ZFS</span>
           </span>
         )}
         <Button

@@ -22,6 +22,7 @@ interface FormModalProps {
   children: React.ReactNode;
   onSubmit?: () => void;
   submitLabel?: string;
+  disabled?: boolean;
 }
 
 export function FormModal({
@@ -31,6 +32,7 @@ export function FormModal({
   children,
   onSubmit,
   submitLabel = "Guardar",
+  disabled = false,
 }: FormModalProps) {
   const isDesktop = useMediaQuery("(min-width: 768px)");
 
@@ -47,7 +49,7 @@ export function FormModal({
               <Button variant="outline" onClick={onClose}>
                 Cancelar
               </Button>
-              <Button onClick={onSubmit}>{submitLabel}</Button>
+              <Button onClick={onSubmit} disabled={disabled}>{submitLabel}</Button>
             </div>
           )}
         </DialogContent>
@@ -67,7 +69,7 @@ export function FormModal({
             <Button variant="outline" onClick={onClose}>
               Cancelar
             </Button>
-            <Button onClick={onSubmit}>{submitLabel}</Button>
+            <Button onClick={onSubmit} disabled={disabled}>{submitLabel}</Button>
           </div>
         )}
       </SheetContent>

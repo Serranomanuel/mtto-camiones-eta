@@ -37,6 +37,10 @@ const statusColorMap: Record<string, StatusVariant> = {
   "Eliminar": "destructive",
   "Importar": "warning",
   "Generar": "purple",
+  // Roles
+  "Admin": "destructive",
+  "Editor": "info",
+  "Visual": "default",
 };
 
 const variantStyles: Record<StatusVariant, string> = {

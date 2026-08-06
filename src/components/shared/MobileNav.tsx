@@ -59,8 +59,11 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
     <Sheet open={open} onOpenChange={onClose}>
       <SheetContent side="left" className="w-72 p-0">
         <SheetHeader className="border-b px-4 py-3">
-          <SheetTitle className="text-lg font-bold text-primary">
-            ETALUM
+          <SheetTitle
+            className="text-lg font-bold text-primary"
+            style={{ fontFamily: "var(--font-brand)" }}
+          >
+            ETALUM <span className="text-primary/60 font-medium">ZFS</span>
           </SheetTitle>
         </SheetHeader>
         <nav className="flex-1 overflow-y-auto py-2">

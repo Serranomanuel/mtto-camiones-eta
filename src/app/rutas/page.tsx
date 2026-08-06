@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useForm, type Resolver } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { rutaSchema, type RutaFormData } from "@/lib/validations";
 import { useRutas } from "@/hooks/use-rutas";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { MapView, ciudadesCoordenadas } from "@/components/shared/MapView";
@@ -27,7 +30,7 @@ import {
 import type { Ruta } from "@/types/etalum";
 import { Plus, Pencil, Trash2, Map, X } from "lucide-react";
 
-const emptyForm: Omit<Ruta, "id"> = {
+const emptyForm: RutaFormData = {
   origen: "",
   destino: "",
   via: "",
@@ -35,7 +38,6 @@ const emptyForm: Omit<Ruta, "id"> = {
   tiempoMin: null,
   peajeReferencia: null,
   linkGoogleMaps: "",
-  ultimaActualizacion: "",
   observaciones: "",
 };
 
@@ -80,10 +82,14 @@ export default function RutasPage() {
   const { data: rutas, loading, create, update, delete: deleteRuta } = useRutas();
   const isDesktop = useMediaQuery("(min-width: 1024px)");
 
+  const form = useForm<RutaFormData>({
+    resolver: zodResolver(rutaSchema) as Resolver<RutaFormData>,
+    defaultValues: emptyForm,
+  });
+
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<Omit<Ruta, "id">>(emptyForm);
   const [deleteTarget, setDeleteTarget] = useState<Ruta | null>(null);
   const [selectedRuta, setSelectedRuta] = useState<Ruta | null>(null);
   const [fullscreenMapOpen, setFullscreenMapOpen] = useState(false);
@@ -104,13 +110,13 @@ export default function RutasPage() {
 
   function openCreate() {
     setEditingId(null);
-    setForm(emptyForm);
+    form.reset(emptyForm);
     setModalOpen(true);
   }
 
   function openEdit(r: Ruta) {
     setEditingId(r.id);
-    setForm({
+    form.reset({
       origen: r.origen,
       destino: r.destino,
       via: r.via,
@@ -118,17 +124,16 @@ export default function RutasPage() {
       tiempoMin: r.tiempoMin,
       peajeReferencia: r.peajeReferencia,
       linkGoogleMaps: r.linkGoogleMaps,
-      ultimaActualizacion: r.ultimaActualizacion,
       observaciones: r.observaciones,
     });
     setModalOpen(true);
   }
 
-  async function handleSave() {
+  async function onValid(data: RutaFormData) {
     if (editingId) {
-      await update(editingId, form);
+      await update(editingId, data as Partial<Ruta>);
     } else {
-      await create(form);
+      await create(data as Omit<Ruta, "id">);
     }
     setModalOpen(false);
   }
@@ -140,20 +145,13 @@ export default function RutasPage() {
     }
   }
 
-  function setField<K extends keyof Omit<Ruta, "id">>(key: K, value: Omit<Ruta, "id">[K]) {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  }
-
   function handleSimular() {
     const distancia = Math.round(150 + Math.random() * 700);
     const tiempo = Math.round(distancia * (0.8 + Math.random() * 0.5));
     const peaje = Math.round((5000 + Math.random() * 40000) / 500) * 500;
-    setForm((prev) => ({
-      ...prev,
-      distanciaKm: distancia,
-      tiempoMin: tiempo,
-      peajeReferencia: peaje,
-    }));
+    form.setValue("distanciaKm", distancia);
+    form.setValue("tiempoMin", tiempo);
+    form.setValue("peajeReferencia", peaje);
   }
 
   function handleRowClick(ruta: Ruta) {
@@ -310,7 +308,7 @@ export default function RutasPage() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         title={editingId ? "Editar Ruta" : "Nueva Ruta"}
-        onSubmit={handleSave}
+        onSubmit={form.handleSubmit(onValid)}
         submitLabel={editingId ? "Actualizar" : "Crear"}
       >
         <div className="space-y-4">
@@ -319,27 +317,32 @@ export default function RutasPage() {
               <Label htmlFor="origen">Origen</Label>
               <Input
                 id="origen"
-                value={form.origen}
-                onChange={(e) => setField("origen", e.target.value)}
+                {...form.register("origen")}
+                className={form.formState.errors.origen ? "border-destructive" : ""}
                 placeholder="Ciudad de origen"
               />
+              {form.formState.errors.origen?.message && (
+                <p className="text-sm text-destructive">{form.formState.errors.origen.message}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="destino">Destino</Label>
               <Input
                 id="destino"
-                value={form.destino}
-                onChange={(e) => setField("destino", e.target.value)}
+                {...form.register("destino")}
+                className={form.formState.errors.destino ? "border-destructive" : ""}
                 placeholder="Ciudad de destino"
               />
+              {form.formState.errors.destino?.message && (
+                <p className="text-sm text-destructive">{form.formState.errors.destino.message}</p>
+              )}
             </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="via">Vía</Label>
             <Input
               id="via"
-              value={form.via}
-              onChange={(e) => setField("via", e.target.value)}
+              {...form.register("via")}
               placeholder="Nombre de la vía"
             />
           </div>
@@ -347,8 +350,7 @@ export default function RutasPage() {
             <Label htmlFor="linkGoogleMaps">Link Google Maps</Label>
             <Input
               id="linkGoogleMaps"
-              value={form.linkGoogleMaps}
-              onChange={(e) => setField("linkGoogleMaps", e.target.value)}
+              {...form.register("linkGoogleMaps")}
               placeholder="https://maps.google.com/..."
             />
           </div>
@@ -358,8 +360,7 @@ export default function RutasPage() {
               <Input
                 id="distanciaKm"
                 type="number"
-                value={form.distanciaKm ?? ""}
-                onChange={(e) => setField("distanciaKm", e.target.value ? Number(e.target.value) : null)}
+                {...form.register("distanciaKm", { valueAsNumber: true })}
                 placeholder="—"
               />
             </div>
@@ -368,8 +369,7 @@ export default function RutasPage() {
               <Input
                 id="tiempoMin"
                 type="number"
-                value={form.tiempoMin ?? ""}
-                onChange={(e) => setField("tiempoMin", e.target.value ? Number(e.target.value) : null)}
+                {...form.register("tiempoMin", { valueAsNumber: true })}
                 placeholder="—"
               />
             </div>
@@ -378,8 +378,7 @@ export default function RutasPage() {
               <Input
                 id="peajeReferencia"
                 type="number"
-                value={form.peajeReferencia ?? ""}
-                onChange={(e) => setField("peajeReferencia", e.target.value ? Number(e.target.value) : null)}
+                {...form.register("peajeReferencia", { valueAsNumber: true })}
                 placeholder="—"
               />
             </div>
@@ -391,8 +390,7 @@ export default function RutasPage() {
             <Label htmlFor="observaciones">Observaciones</Label>
             <Input
               id="observaciones"
-              value={form.observaciones}
-              onChange={(e) => setField("observaciones", e.target.value)}
+              {...form.register("observaciones")}
               placeholder="Notas adicionales..."
             />
           </div>
