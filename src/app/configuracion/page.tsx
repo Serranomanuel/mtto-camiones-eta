@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useState, useEffect, useCallback } from "react";
 import { useConfiguracion } from "@/hooks/use-configuracion";
 import { useUsuarios } from "@/hooks/use-usuarios";

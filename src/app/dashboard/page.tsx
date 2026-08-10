@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useState, useMemo, useCallback } from "react";
 import { useViajes } from "@/hooks/use-viajes";
 import { useDespachos } from "@/hooks/use-despachos";

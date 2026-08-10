@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useState, useMemo, useCallback } from "react";
 import { FileText, FileSpreadsheet, Printer, ChevronRight, ChevronLeft } from "lucide-react";
 import jsPDF from "jspdf";
