@@ -24,6 +24,9 @@
 .DS_Store
 *.pem
 
+# sensitive files
+docs/CREDENCIALES.md
+
 # debug
 npm-debug.log*
 yarn-debug.log*

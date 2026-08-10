@@ -1,32 +1,45 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { createClient } from "@/lib/supabase/client";
 import type { Vehiculo } from "@/types/etalum";
-import { vehiculos } from "@/lib/mock-data";
 
-function generateId(): string {
-  const num = String(Math.floor(Math.random() * 99) + 1).padStart(2, "0");
-  return `VEH-${num}`;
+function toCamelCase(row: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const key in row) {
+    const camelKey = key.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase());
+    result[camelKey] = row[key];
+  }
+  return result;
+}
+
+function toSnakeCase(obj: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const key in obj) {
+    const snakeKey = key.replace(/[A-Z]/g, (letter: string) => `_${letter.toLowerCase()}`);
+    result[snakeKey] = obj[key];
+  }
+  return result;
 }
 
 export function useVehiculos() {
   const [data, setData] = useState<Vehiculo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const supabase = createClient();
 
-  const fetchData = useCallback(() => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
-    setTimeout(() => {
-      try {
-        setData([...vehiculos]);
-      } catch {
-        setError("Error al cargar datos");
-      } finally {
-        setLoading(false);
-      }
-    }, 800);
-  }, []);
+    const { data, error } = await supabase
+      .from("vehiculos")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) setError(error.message);
+    else setData((data || []).map(toCamelCase) as unknown as Vehiculo[]);
+    setLoading(false);
+  }, [supabase]);
 
   useEffect(() => {
     fetchData();
@@ -34,39 +47,40 @@ export function useVehiculos() {
 
   const create = useCallback(
     async (item: Omit<Vehiculo, "id">): Promise<Vehiculo> => {
-      return new Promise<Vehiculo>((resolve) => {
-        setTimeout(() => {
-          const newItem = { ...item, id: generateId() };
-          setData((prev) => [...prev, newItem]);
-          resolve(newItem);
-        }, 500);
-      });
+      const { data, error } = await supabase
+        .from("vehiculos")
+        .insert(toSnakeCase(item as Record<string, unknown>))
+        .select()
+        .single();
+      if (error) throw error;
+      const mapped = toCamelCase(data) as unknown as Vehiculo;
+      setData((prev) => [...prev, mapped]);
+      return mapped;
     },
-    []
+    [supabase]
   );
 
   const update = useCallback(
     async (id: string, item: Partial<Vehiculo>): Promise<Vehiculo> => {
-      return new Promise<Vehiculo>((resolve) => {
-        setTimeout(() => {
-          setData((prev) =>
-            prev.map((d) => (d.id === id ? { ...d, ...item } : d))
-          );
-          resolve({ ...item, id } as Vehiculo);
-        }, 500);
-      });
+      const { data, error } = await supabase
+        .from("vehiculos")
+        .update(toSnakeCase(item as Record<string, unknown>))
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+      const mapped = toCamelCase(data) as unknown as Vehiculo;
+      setData((prev) => prev.map((e) => (e.id === id ? mapped : e)));
+      return mapped;
     },
-    []
+    [supabase]
   );
 
   const deleteItem = useCallback(async (id: string): Promise<void> => {
-    return new Promise<void>((resolve) => {
-      setTimeout(() => {
-        setData((prev) => prev.filter((d) => d.id !== id));
-        resolve();
-      }, 500);
-    });
-  }, []);
+    const { error } = await supabase.from("vehiculos").delete().eq("id", id);
+    if (error) throw error;
+    setData((prev) => prev.filter((e) => e.id !== id));
+  }, [supabase]);
 
   return {
     data,
