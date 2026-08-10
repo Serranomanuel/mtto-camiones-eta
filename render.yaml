@@ -3,8 +3,8 @@ services:
     name: etalum-web
     runtime: node
     plan: free
-    buildCommand: npm install && npm run build
-    startCommand: npm start
+    buildCommand: bash build.sh
+    startCommand: node .next/standalone/server.js
     healthCheckPath: /
     envVars:
       - key: NEXT_PUBLIC_SUPABASE_URL
@@ -15,3 +15,5 @@ services:
         sync: false
       - key: NODE_VERSION
         value: 20.18.0
+      - key: PORT
+        value: 10000
