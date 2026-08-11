@@ -16,8 +16,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { SkeletonLoader } from "@/components/shared/SkeletonLoader";
 import { ciudadesCoordenadas } from "@/lib/ciudades";
-import dynamic from "next/dynamic";
-const MapView = dynamic(() => import("@/components/shared/MapView").then(m => m.MapView), { ssr: false });
+import nextDynamic from "next/dynamic";
+const MapView = nextDynamic(() => import("@/components/shared/MapView").then(m => m.MapView), { ssr: false });
 
 export default function ViajeDetallePage({ params }: { params: Promise<{ id: string }> }) {
   const [id, setId] = useState<string>("");
