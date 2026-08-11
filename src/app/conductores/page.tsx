@@ -144,16 +144,12 @@ export default function ConductoresPage() {
   }
 
   async function handleSave() {
-    try {
-      if (editingId) {
-        await update(editingId, form);
-      } else {
-        await create(form);
-      }
-      setModalOpen(false);
-    } catch (err) {
-      alert(`Error al guardar: ${err instanceof Error ? err.message : String(err)}`);
+    if (editingId) {
+      await update(editingId, form);
+    } else {
+      await create(form);
     }
+    setModalOpen(false);
   }
 
   async function handleDelete() {

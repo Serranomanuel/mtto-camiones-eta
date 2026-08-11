@@ -44,9 +44,9 @@ CREATE POLICY "Allow all on peajes" ON peajes FOR ALL USING (true) WITH CHECK (t
 ALTER TABLE indicadores ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow all on indicadores" ON indicadores FOR ALL USING (true) WITH CHECK (true);
 
--- Log eventos
-ALTER TABLE log_eventos ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all on log_eventos" ON log_eventos FOR ALL USING (true) WITH CHECK (true);
+-- Log auditoria
+ALTER TABLE log_auditoria ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all on log_auditoria" ON log_auditoria FOR ALL USING (true) WITH CHECK (true);
 
 -- Usuarios
 ALTER TABLE usuarios ENABLE ROW LEVEL SECURITY;

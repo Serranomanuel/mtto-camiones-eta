@@ -14,13 +14,14 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { useMediaQuery } from "@/hooks/use-media-query";
+import { useState } from "react";
 
 interface FormModalProps {
   open: boolean;
   onClose: () => void;
   title: string;
   children: React.ReactNode;
-  onSubmit?: () => void;
+  onSubmit?: () => void | Promise<void>;
   submitLabel?: string;
   disabled?: boolean;
 }
@@ -35,6 +36,21 @@ export function FormModal({
   disabled = false,
 }: FormModalProps) {
   const isDesktop = useMediaQuery("(min-width: 768px)");
+  const [saving, setSaving] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  async function submit() {
+    if (!onSubmit || saving) return;
+    setSaving(true);
+    setSubmitError(null);
+    try {
+      await onSubmit();
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "No se pudo guardar el registro");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   if (isDesktop) {
     return (
@@ -46,10 +62,11 @@ export function FormModal({
           <div className="py-4">{children}</div>
           {onSubmit && (
             <div className="flex justify-end gap-2">
+              {submitError && <p className="mr-auto self-center text-sm text-destructive">{submitError}</p>}
               <Button variant="outline" onClick={onClose}>
                 Cancelar
               </Button>
-              <Button onClick={onSubmit} disabled={disabled}>{submitLabel}</Button>
+              <Button onClick={submit} disabled={disabled || saving}>{saving ? "Guardando..." : submitLabel}</Button>
             </div>
           )}
         </DialogContent>
@@ -66,10 +83,11 @@ export function FormModal({
         <div className="pb-4">{children}</div>
         {onSubmit && (
           <div className="flex justify-end gap-2 pb-4">
+            {submitError && <p className="mr-auto self-center text-sm text-destructive">{submitError}</p>}
             <Button variant="outline" onClick={onClose}>
               Cancelar
             </Button>
-            <Button onClick={onSubmit} disabled={disabled}>{submitLabel}</Button>
+            <Button onClick={submit} disabled={disabled || saving}>{saving ? "Guardando..." : submitLabel}</Button>
           </div>
         )}
       </SheetContent>

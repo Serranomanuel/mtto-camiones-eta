@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Viaje } from "@/types/etalum";
+import { withGeneratedId } from "@/lib/supabase/records";
 
 function toCamelCase(row: Record<string, unknown>): Record<string, unknown> {
   const result: Record<string, unknown> = {};
@@ -57,7 +58,7 @@ export function useViajes() {
     async (item: Omit<Viaje, "id">): Promise<Viaje> => {
       const { data, error } = await supabase
         .from("viajes")
-        .insert(toSnakeCase(item as Record<string, unknown>))
+        .insert(withGeneratedId(toSnakeCase(item as Record<string, unknown>)))
         .select()
         .single();
       if (error) throw error;
